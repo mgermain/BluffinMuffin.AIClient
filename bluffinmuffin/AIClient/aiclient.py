@@ -22,7 +22,6 @@ class AIClient(object):
         else:
             raise Exception("Server incompatible!!")
 
-
     def _send(self, msg):
         msg = "{}\n".format(msg).encode('ascii')
         sent = self.socket.send(msg)
@@ -36,5 +35,6 @@ class AIClient(object):
         return json.loads(rep.decode("utf-8") )
 
     def __del__(self):
+        self._send(proto.DisconnectCommand({}).encode())
         self.socket.shutdown(1)
         self.socket.close()
