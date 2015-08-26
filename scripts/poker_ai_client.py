@@ -5,6 +5,7 @@ from bluffinmuffin.AIClient import AIClient
 def main():
     args = parse_arguments()
     client = AIClient(args.ai_type, args.server, args.port)
+    client.find_table()
 
 
 def parse_arguments():
