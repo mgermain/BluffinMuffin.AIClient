@@ -1,5 +1,6 @@
 import json
 import socket
+from bluffinmuffin import protocol as proto
 
 
 class AIClient(object):
@@ -13,12 +14,7 @@ class AIClient(object):
         self.socket.connect((server, port))
         print("Done")
 
-        check_compat = {
-            "CommandName": "CheckCompatibilityCommand",
-            "ImplementedProtocolVersion": "2.2.0"
-        }
-        self._send(json.dumps(check_compat))
-        # self._send(protocole.lobby.CheckCompatibilityCommand({"ImplementedProtocolVersion": "2.2.0"}))
+        self._send(proto.lobby.CheckCompatibilityCommand({"ImplementedProtocolVersion": "2.2.0"}).encode())
         compat_rep = self._receive()
 
         if compat_rep['Success']:

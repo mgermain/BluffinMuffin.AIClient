@@ -11,5 +11,6 @@ setup(
     license='LICENSE.txt',
     author='Mathieu Germain',
     author_email='mathieu.germain@gmail.com',
-    description=''
+    description='',
+    install_requires=['bluffinmuffin.protocol']
 )
