@@ -12,5 +12,5 @@ setup(
     author='Mathieu Germain',
     author_email='mathieu.germain@gmail.com',
     description='',
-    install_requires=['bluffinmuffin.protocol']
+    install_requires=['bluffinmuffin.protocol', 'numpy']
 )
