@@ -1,7 +1,8 @@
 import json
 import socket
+from bluffinmuffin.protocol import CommandDecoder
 from bluffinmuffin import protocol as proto
-from .AIType.random import Random as randomBot
+from bluffinmuffin.AIClient.AIType.random import Random as randomBot
 
 
 def jprint(j):
@@ -24,9 +25,9 @@ class AIClient(object):
         print("Done")
 
         # Check version
-        self._send(proto.lobby.CheckCompatibilityCommand({"ImplementedProtocolVersion": proto.__version__}).encode())
+        self._send(proto.lobby.CheckCompatibilityCommand(proto.__version__).encode())
         compat_rep = self._receive()
-        if compat_rep['Success']:
+        if compat_rep.success:
             print("The server is compatible!")
         else:
             raise Exception("Server incompatible!!")
@@ -146,7 +147,7 @@ class AIClient(object):
         rep = b""
         while not rep.endswith(b'\n'):
             rep += self.socket.recv(100)
-        return json.loads(rep.decode("utf-8"))
+        return CommandDecoder.decode(json.loads(rep.decode("utf-8")))
 
     def __del__(self):
         if self._currentSeatId:
