@@ -35,101 +35,101 @@ class AIClient(object):
         # Identify
         ai_name = "AI-{}".format(self.ai_type)
         ai_id = 1
-        ident_rep = {"Success": False}
-        while not ident_rep['Success']:
-            self._send(proto.lobby.quick_mode.IdentifyCommand({"Name": ai_name}).encode())
+        ident_rep = type('',(object,),{"success": False})()
+        while not ident_rep.success:
+            self._send(proto.lobby.quick_mode.IdentifyCommand(ai_name).encode())
             ident_rep = self._receive()
-            if not ident_rep['Success']:
-                print(ident_rep['Message'] + " Trying a different one.")
+            if not ident_rep.success:
+                print(ai_name + " " + ident_rep.message + " Trying a different one.")
                 ai_name += str(ai_id)
                 ai_id += 1
         print("Logged in as: {}".format(ai_name))
 
     def _join_table(self):
         # List tables
-        self._send(proto.lobby.ListTableCommand({"LobbyTypes": [proto.enums.LobbyTypeEnum.QuickMode.name]}).encode())
+        self._send(proto.lobby.ListTableCommand([proto.enums.LobbyTypeEnum.QuickMode]).encode())
         tables_rep = self._receive()
 
-        best_table = (-1, None)
-        for t in tables_rep['Tables']:
-            if t['NbPlayers'] < t['Params']['MaxPlayers']:
-                if t['NbPlayers'] > best_table[0]:
-                    best_table = (t['NbPlayers'], t['IdTable'], t)
-        if best_table[0] == -1:
+        best_table = type('',(object,),{"nb_players": -1})()
+        for t in tables_rep.tables:
+            if t.nb_players < t.params.max_players:
+                if t.nb_players > best_table.nb_players:
+                    best_table = t
+        if best_table.nb_players == -1:
             return False
 
         # Join table
-        self._send(proto.lobby.JoinTableCommand({"TableId": best_table[1]}).encode())
+        self._send(proto.lobby.JoinTableCommand(best_table.id_table).encode())
         join_tables_rep = self._receive()
-        if join_tables_rep['Success']:
-            self._currentTableId = best_table[1]
+        if join_tables_rep.success:
+            self._currentTableId = best_table.id_table
         table_status = self._receive()
 
         # Sit table
-        self._send(proto.game.PlayerSitInCommand({"TableId": best_table[1], "NoSeat": 1, "MoneyAmount": best_table[2]['Params']['Lobby']['StartingAmount']}).encode())
+        self._send(proto.game.PlayerSitInCommand(best_table.id_table, 1, best_table.params.lobby.starting_amount).encode())
         tables_sit_rep = self._receive()
-        while tables_sit_rep['CommandName'] != "PlayerSitInResponse":
+        while tables_sit_rep.command_name != "PlayerSitInResponse":
             tables_sit_rep = self._receive()
 
-        if tables_sit_rep['Success']:
-            self._currentSeatId = tables_sit_rep["NoSeat"]
+        if tables_sit_rep.success:
+            self._currentSeatId = tables_sit_rep.no_seat
 
-        return tables_sit_rep['Success']
+        return tables_sit_rep.success
 
     def play(self):
         bot = None
-        table_status = {}
+        table_status = None
         cards = []
         while True:
             rep = self._receive()
-            cmd_name = rep['CommandName']
+            cmd_name = rep.command_name
 
             if cmd_name == "TableInfoCommand":
                 table_status = rep
                 print("# Updated table status #")
 
             elif cmd_name == "GameStartedCommand":
-                bot = randomBot(table_status["Seats"][self._currentSeatId]["Player"]["MoneySafeAmnt"])
-                if rep['NeededBlindAmount'] > 0:
-                    self._send(proto.game.PlayerPlayMoneyCommand({"TableId": self._currentTableId, "AmountPlayed": rep['NeededBlindAmount']}).encode())
+                bot = randomBot(table_status.seats[self._currentSeatId].player.money_safe_amount)
+                if rep.needed_blind_amount > 0:
+                    self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, rep.needed_blind_amount).encode())
                     #played_money_rep = self._receive()
                     #jprint(played_money_rep)
                     #if played_money_rep['CommandName'] != "PlayerPlayMoneyResponse":
                     #    raise Exception("11111OMGWTF TOTAL MONEY FAIL: {}".format(played_money_rep['CommandName']))
                     print("# Posted Blind #")
-                    bot.total_bet_this_round = rep['NeededBlindAmount']
-                    bot.total_money -= rep['NeededBlindAmount']
+                    bot.total_bet_this_round = rep.needed_blind_amount
+                    bot.total_money -= rep.needed_blind_amount
                     print("# Started Bot #")
 
             elif cmd_name == "PlayerHoleCardsChangedCommand":
-                if rep["NoSeat"] == self._currentSeatId:
-                    bot.set_hand(rep["Cards"])
+                if rep.no_seat == self._currentSeatId:
+                    bot.set_hand(rep.cards)
 
             elif cmd_name == "PlayerTurnBeganCommand":
                 #jprint(rep)
-                if rep["NoSeat"] == self._currentSeatId:
+                if rep.no_seat == self._currentSeatId:
                     #jprint(rep)
                     #jprint(table_status)
-                    bet = bot.get_bet(rep["MinimumRaiseAmount"])
-                    self._send(proto.game.PlayerPlayMoneyCommand({"TableId": self._currentTableId, "AmountPlayed": bet}).encode())
+                    bet = bot.get_bet(rep.minimum_raise_amount)
+                    self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, bet).encode())
                     #played_money_rep = self._receive()
                     #jprint(played_money_rep)
 
             elif cmd_name == "BetTurnStartedCommand":
-                if rep["BettingRoundId"] != 1 and bot is not None:
-                    c = rep["Cards"]
+                if rep.betting_round_id != 1 and bot is not None:
+                    c = rep.cards
                     filter(lambda x: x != '', c)
                     bot.start_betting_round(c)
 
             elif cmd_name == "PlayerTurnEndedCommand":
-                if rep["NoSeat"] == self._currentSeatId:
+                if rep.no_seat == self._currentSeatId:
                     #if bot.total_money != rep["TotalSafeMoneyAmount"]:
                     #    raise Exception("OMGWTF TOTAL MONEY FAIL: {}:{}".format(bot.total_money, rep["TotalSafeMoneyAmount"]))
-                    bot.total_money = rep["TotalSafeMoneyAmount"]
+                    bot.total_money = rep.total_safe_money_amount
 
             else:
                 print("#################")
-                print(rep['CommandName'])
+                print(cmd_name)
                 #jprint(rep)
 
     def find_table(self):
@@ -151,11 +151,11 @@ class AIClient(object):
 
     def __del__(self):
         if self._currentSeatId:
-            self._send(proto.game.PlayerSitOutCommand({"TableId": self._currentTableId}).encode())
+            self._send(proto.game.PlayerSitOutCommand(self._currentTableId).encode())
             print("Sit out from table: {}".format(self._currentTableId))
 
         if self._currentTableId:
-            self._send(proto.lobby.LeaveTableCommand({"TableId": self._currentTableId}).encode())
+            self._send(proto.lobby.LeaveTableCommand(self._currentTableId).encode())
             print("Left table: {}".format(self._currentTableId))
 
         self._send(proto.DisconnectCommand({}).encode())
