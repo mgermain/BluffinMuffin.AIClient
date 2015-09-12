@@ -87,6 +87,11 @@ class AIClient(object):
 
         return tables_sit_rep.success
 
+    def find_table(self):
+        if not self._join_table():
+            raise Exception("No table to join!")
+        # Need to add create table if no table available
+
     def play(self):
         bot = None
         table_status = None
@@ -143,11 +148,6 @@ class AIClient(object):
                 print(cmd_name)
                 # jprint(rep)
 
-    def find_table(self):
-        if not self._join_table():
-            raise Exception("No table to join!")
-        # Need to add create table if no table available
-
     def _send(self, msg):
         msg = "{}\n".format(msg).encode('ascii')
         sent = self.socket.send(msg)
@@ -161,7 +161,6 @@ class AIClient(object):
         return CommandDecoder.decode(json.loads(rep.decode("utf-8")))
 
     def __del__(self):
-        print(self._currentSeatId)
         if self._currentSeatId:
             self._send(proto.game.PlayerSitOutCommand(self._currentTableId).encode())
             print("Sit out from table: {}".format(self._currentTableId))
@@ -170,7 +169,7 @@ class AIClient(object):
             self._send(proto.lobby.LeaveTableCommand(self._currentTableId).encode())
             print("Left table: {}".format(self._currentTableId))
 
-        self._send(proto.DisconnectCommand({}).encode())
+        self._send(proto.DisconnectCommand().encode())
         print("Logged Out!")
         self.socket.shutdown(1)
         self.socket.close()
