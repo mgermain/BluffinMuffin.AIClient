@@ -35,7 +35,7 @@ class AIClient(object):
         # Identify
         ai_name = "AI-{}".format(self.ai_type)
         ai_id = 1
-        ident_rep = type('',(object,),{"success": False})()
+        ident_rep = type('', (object,), {"success": False})()
         while not ident_rep.success:
             self._send(proto.lobby.quick_mode.IdentifyCommand(ai_name).encode())
             ident_rep = self._receive()
@@ -50,7 +50,7 @@ class AIClient(object):
         self._send(proto.lobby.ListTableCommand([proto.enums.LobbyTypeEnum.QuickMode]).encode())
         tables_rep = self._receive()
 
-        best_table = type('',(object,),{"nb_players": -1})()
+        best_table = type('', (object,), {"nb_players": -1})()
         for t in tables_rep.tables:
             if t.nb_players < t.params.max_players:
                 if t.nb_players > best_table.nb_players:
@@ -93,8 +93,8 @@ class AIClient(object):
                 if rep.needed_blind_amount > 0:
                     self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, rep.needed_blind_amount).encode())
                     #played_money_rep = self._receive()
-                    #jprint(played_money_rep)
-                    #if played_money_rep['CommandName'] != "PlayerPlayMoneyResponse":
+                    # jprint(played_money_rep)
+                    # if played_money_rep['CommandName'] != "PlayerPlayMoneyResponse":
                     #    raise Exception("11111OMGWTF TOTAL MONEY FAIL: {}".format(played_money_rep['CommandName']))
                     print("# Posted Blind #")
                     bot.total_bet_this_round = rep.needed_blind_amount
@@ -106,14 +106,14 @@ class AIClient(object):
                     bot.set_hand(rep.cards)
 
             elif cmd_name == "PlayerTurnBeganCommand":
-                #jprint(rep)
+                # jprint(rep)
                 if rep.no_seat == self._currentSeatId:
-                    #jprint(rep)
-                    #jprint(table_status)
-                    bet = bot.get_bet(rep.minimum_raise_amount)
+                    # jprint(rep.encode())
+                    # jprint(table_status)
+                    bet = bot.get_bet(rep.amount_needed, rep.minimum_raise_amount)
                     self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, bet).encode())
                     #played_money_rep = self._receive()
-                    #jprint(played_money_rep)
+                    # jprint(played_money_rep)
 
             elif cmd_name == "BetTurnStartedCommand":
                 if rep.betting_round_id != 1 and bot is not None:
@@ -123,14 +123,14 @@ class AIClient(object):
 
             elif cmd_name == "PlayerTurnEndedCommand":
                 if rep.no_seat == self._currentSeatId:
-                    #if bot.total_money != rep["TotalSafeMoneyAmount"]:
+                    # if bot.total_money != rep["TotalSafeMoneyAmount"]:
                     #    raise Exception("OMGWTF TOTAL MONEY FAIL: {}:{}".format(bot.total_money, rep["TotalSafeMoneyAmount"]))
                     bot.total_money = rep.total_safe_money_amount
 
             else:
                 print("#################")
                 print(cmd_name)
-                #jprint(rep)
+                # jprint(rep)
 
     def find_table(self):
         if not self._join_table():
