@@ -5,7 +5,7 @@ from bluffinmuffin import protocol as proto
 from bluffinmuffin.protocol import CommandDecoder
 from bluffinmuffin.protocol.enums import BluffinMessageIdEnum
 
-from bluffinmuffin.AIClient.AIType.random import Random as randomBot
+from bluffinmuffin.AIClient.AIType import *
 
 
 def jprint(j):
@@ -24,7 +24,7 @@ class AIClient(object):
         self._currentSeatId = None
 
     def _connect(self, server, port):
-        print("# Connection to {}:{} ... ".format(server, port), end="")
+        print("# Connecting to {}:{} ... ".format(server, port), end="")
         self.socket.connect((server, port))
         print("Done")
 
@@ -53,8 +53,8 @@ class AIClient(object):
                 else:
                     raise Exception("{}Error - {}: {}".format(ident_rep.command_name, ident_rep.message_id, ident_rep.message))
 
-        ai_name = ai_name.format(ai_id)
-        print("Logged in as: {}".format(ai_name))
+        self.ai_name = ai_name.format(ai_id)
+        print("Logged in as: {}".format(self.ai_name))
 
     def _join_table(self):
         # List tables
@@ -98,55 +98,46 @@ class AIClient(object):
         cards = []
         while True:
             rep = self._receive()
-            cmd_name = rep.command_name
+            print("##########{:^31}##########".format(rep.command_name))
 
-            if cmd_name == "TableInfoCommand":
+            if rep.command_name == "TableInfoCommand":
                 table_status = rep
-                print("# Updated table status #")
 
-            elif cmd_name == "GameStartedCommand":
-                bot = randomBot(table_status.seats[self._currentSeatId].player.money_safe_amount)
+            elif rep.command_name == "GameStartedCommand":
+                bot = eval(self.ai_type)(table_status.seats[self._currentSeatId].player.money_safe_amount)
+                print("\n# Started Bot {} - Type:{} Money:{} #".format(self.ai_name, self.ai_type, table_status.seats[self._currentSeatId].player.money_safe_amount))
+
                 if rep.needed_blind_amount > 0:
-                    self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, rep.needed_blind_amount).encode())
-                    #played_money_rep = self._receive()
-                    # jprint(played_money_rep)
-                    # if played_money_rep['CommandName'] != "PlayerPlayMoneyResponse":
-                    #    raise Exception("11111OMGWTF TOTAL MONEY FAIL: {}".format(played_money_rep['CommandName']))
-                    print("# Posted Blind #")
-                    bot.total_bet_this_round = rep.needed_blind_amount
-                    bot.total_money -= rep.needed_blind_amount
-                    print("# Started Bot #")
+                    if rep.needed_blind_amount > bot.total_money:
+                        raise Exception("Not enought money to pay blind. Money:{} Blind:{}".format(rep.needed_blind_amount, bot.total_money))
+                    else:
+                        self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, rep.needed_blind_amount).encode())
+                        bot.set_blind(rep.needed_blind_amount)
+                        print("# Posted Blind {} #".format(rep.needed_blind_amount))
 
-            elif cmd_name == "PlayerHoleCardsChangedCommand":
+            elif rep.command_name == "PlayerHoleCardsChangedCommand":
                 if rep.no_seat == self._currentSeatId:
                     bot.set_hand(rep.cards)
 
-            elif cmd_name == "PlayerTurnBeganCommand":
-                # jprint(rep)
+            elif rep.command_name == "PlayerTurnBeganCommand":
                 if rep.no_seat == self._currentSeatId:
-                    # jprint(rep.encode())
-                    # jprint(table_status)
                     bet = bot.get_bet(rep.amount_needed, rep.minimum_raise_amount)
                     self._send(proto.game.PlayerPlayMoneyCommand(self._currentTableId, bet).encode())
-                    #played_money_rep = self._receive()
-                    # jprint(played_money_rep)
 
-            elif cmd_name == "BetTurnStartedCommand":
+            elif rep.command_name == "BetTurnStartedCommand":
                 if rep.betting_round_id != 1 and bot is not None:
                     c = rep.cards
                     filter(lambda x: x != '', c)
                     bot.start_betting_round(c)
 
-            elif cmd_name == "PlayerTurnEndedCommand":
+            elif rep.command_name == "PlayerTurnEndedCommand":
                 if rep.no_seat == self._currentSeatId:
-                    # if bot.total_money != rep["TotalSafeMoneyAmount"]:
-                    #    raise Exception("OMGWTF TOTAL MONEY FAIL: {}:{}".format(bot.total_money, rep["TotalSafeMoneyAmount"]))
+                    if bot.total_money != rep.total_safe_money_amount:
+                        raise Exception("OMGWTF TOTAL MONEY FAIL: {}:{}".format(bot.total_money, rep.total_safe_money_amount))
                     bot.total_money = rep.total_safe_money_amount
 
-            else:
-                print("#################")
-                print(cmd_name)
-                # jprint(rep)
+            # else:
+            # print("##########{:^21}##########".format(rep.command_name))
 
     def _send(self, msg):
         msg = "{}\n".format(msg).encode('ascii')
@@ -155,21 +146,30 @@ class AIClient(object):
             raise RuntimeError("socket connection broken")
 
     def _receive(self):
+        # This number should small, this will avoid the ValueError caused by having 2 command in 1 rep
+        buff_size = 50
+
         rep = b""
         while not rep.endswith(b'\n'):
-            rep += self.socket.recv(100)
-        return CommandDecoder.decode(json.loads(rep.decode("utf-8")))
+            rep += self.socket.recv(buff_size)
+        try:
+            j = json.loads(rep.decode("utf-8"))
+        except ValueError as e:
+            print(rep)
+            raise e
+
+        return CommandDecoder.decode(j)
 
     def __del__(self):
         if self._currentSeatId:
             self._send(proto.game.PlayerSitOutCommand(self._currentTableId).encode())
-            print("Sit out from table: {}".format(self._currentTableId))
+            print("# Siting out from table: {}".format(self._currentTableId))
 
         if self._currentTableId:
             self._send(proto.lobby.LeaveTableCommand(self._currentTableId).encode())
-            print("Left table: {}".format(self._currentTableId))
+            print("# Left table: {}".format(self._currentTableId))
 
         self._send(proto.DisconnectCommand().encode())
-        print("Logged Out!")
+        print("# Logged Out!")
         self.socket.shutdown(1)
         self.socket.close()
