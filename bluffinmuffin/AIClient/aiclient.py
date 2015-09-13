@@ -104,8 +104,13 @@ class AIClient(object):
                 table_status = rep
 
             elif rep.command_name == "GameStartedCommand":
-                bot = eval(self.ai_type)(table_status.seats[self._currentSeatId].player.money_safe_amount)
-                print("\n# Started Bot {} - Type:{} Money:{} #".format(self.ai_name, self.ai_type, table_status.seats[self._currentSeatId].player.money_safe_amount))
+                curr_money = table_status.seats[self._currentSeatId].player.money_safe_amount
+                if curr_money == 0:
+                    print("# No more money! I lost ...")
+                    return
+
+                bot = eval(self.ai_type)(curr_money)
+                print("\n# Started Bot {} | Type:{} Money:{} #".format(self.ai_name, self.ai_type, curr_money))
 
                 if rep.needed_blind_amount > 0:
                     if rep.needed_blind_amount > bot.total_money:
@@ -126,9 +131,7 @@ class AIClient(object):
 
             elif rep.command_name == "BetTurnStartedCommand":
                 if rep.betting_round_id != 1 and bot is not None:
-                    c = rep.cards
-                    filter(lambda x: x != '', c)
-                    bot.start_betting_round(c)
+                    bot.start_betting_round([c for c in rep.cards if c != ''])
 
             elif rep.command_name == "PlayerTurnEndedCommand":
                 if rep.no_seat == self._currentSeatId:
@@ -136,8 +139,6 @@ class AIClient(object):
                         raise Exception("OMGWTF TOTAL MONEY FAIL: {}:{}".format(bot.total_money, rep.total_safe_money_amount))
                     bot.total_money = rep.total_safe_money_amount
 
-            # else:
-            # print("##########{:^21}##########".format(rep.command_name))
 
     def _send(self, msg):
         msg = "{}\n".format(msg).encode('ascii')
@@ -147,7 +148,7 @@ class AIClient(object):
 
     def _receive(self):
         # This number should small, this will avoid the ValueError caused by having 2 command in 1 rep
-        buff_size = 50
+        buff_size = 10
 
         rep = b""
         while not rep.endswith(b'\n'):
