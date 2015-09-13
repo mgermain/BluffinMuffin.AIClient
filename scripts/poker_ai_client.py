@@ -14,7 +14,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("server")
     parser.add_argument("port", type=int)
-    parser.add_argument("-a", "--ai_type", choices=['Random'], default="Random")
+    parser.add_argument("-a", "--ai_type", choices=['Random', 'Raiser', 'Caller'], default="Random")
 
     return parser.parse_args()
 

@@ -1,27 +1,8 @@
 import random as rnd
 import numpy as np
+from .base import BaseBot
 
-
-class Random(object):
-
-    def __init__(self, total_money):
-        self.hand = []
-        self.board = []
-        self.total_bet_this_round = 0
-        self.total_money = total_money
-
-    def set_blind(self, amount):
-        self.total_bet_this_round = amount
-        self.total_money -= amount
-
-    def set_hand(self, hand):
-        self.hand = hand
-        print("@@ Received cards: {}".format(hand))
-
-    def start_betting_round(self, board):
-        print("@@ Board cards: {}".format(board))
-        self.board = board
-        self.total_bet_this_round = 0
+class Random(BaseBot):
 
     def get_bet(self, call_amount, min_raise):
         # 0=Fold, 1=Raise >1=Call
@@ -38,6 +19,34 @@ class Random(object):
         else:
             print("@@ CALL", call_amount, self.total_bet_this_round)
             bet = call_amount
+
+        if bet > self.total_money:
+            print("@@ ALL IN", call_amount, min_raise, self.total_money, bet)
+            bet = self.total_money
+
+        if bet > -1:
+            self.total_money -= bet
+        return bet
+
+class Raiser(BaseBot):
+
+    def get_bet(self, call_amount, min_raise):
+        print("@@ RAISE", call_amount, min_raise, self.total_bet_this_round, self.total_money)
+        bet = call_amount + min_raise
+
+        if bet > self.total_money:
+            print("@@ ALL IN", call_amount, min_raise, self.total_money, bet)
+            bet = self.total_money
+
+        if bet > -1:
+            self.total_money -= bet
+        return bet
+
+class Caller(BaseBot):
+
+    def get_bet(self, call_amount, min_raise):
+        print("@@ CALL", call_amount, self.total_bet_this_round)
+        bet = call_amount
 
         if bet > self.total_money:
             print("@@ ALL IN", call_amount, min_raise, self.total_money, bet)
